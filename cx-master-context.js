@@ -1,12 +1,12 @@
 'use strict';
 
+const _path = require('path');
 const _cx_data = require('cx-data');
 //const _cx_auth = require('./auth/cx-master-auth');
 
 class CXMasterContext extends _cx_data.DBContext {
     constructor(pool) {
-        // TODO: get proper path like relative to or something
-        super(pool, '../../../cx-client/business');
+        super(pool, _path.join(__dirname, 'business'));
     }
 
 }

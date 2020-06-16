@@ -1,3 +1,5 @@
+'use strict';   
+
 const _cx_context = require('./cx-master-context');
 const _cx_auth = require('./auth/auth');
 const _cx_auth_mail = require('./auth/auth-email');
