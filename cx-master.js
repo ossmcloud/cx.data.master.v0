@@ -18,9 +18,9 @@ module.exports = {
 
     authEmail: function (options) {
         return _cx_auth_mail.get(options);
-    }
+    },
 
-
+    getPools: _cx_context.getPools,
 
 
 }

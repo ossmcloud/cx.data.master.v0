@@ -23,6 +23,7 @@ module.exports = {
         return new CXMasterContext(db_pool);
     },
 
+    getPools: _cx_data.getPools,
  
 
 
