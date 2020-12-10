@@ -177,6 +177,7 @@ function DBAuth(options) {
             name: dbUser.firstName + ' ' + dbUser.lastName,
             id: token.id,
             userId: dbUser.loginId,
+            userType: dbUser.loginType,
             accountId: dbUser.lastAccountId,
             accountName: dbUser.accountName,
             accountCode: dbUser.accountCode,
