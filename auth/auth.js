@@ -25,7 +25,7 @@ const configs = {
 
 async function getUser(db, token) {
     if (!token || !token.username) { return null; }
-    var sql = `select	*, a.[name] as accountName, a.[Code] as accountCode, a.dbName, a.serverName
+    var sql = `select	l.*, a.[name] as accountName, a.[Code] as accountCode, a.dbName, a.serverName
                 from	accountLogin l
                 left outer join account a on l.lastAccountId = a.id
                 where   l.email = @email`
@@ -187,8 +187,8 @@ function DBAuth(options) {
                 name: 'cx_' + dbUser.lastAccountId,
                 // TODO: this is stored on local cookie and would not work, see TODO.txt on how to fix
                 config: {
-                    server: dbUser.serverName[0],   // for some reason I get multiple lines on this field
-                    database: dbUser.dbName[0],     // for some reason I get multiple lines on this field
+                    server: dbUser.serverName,
+                    database: dbUser.dbName,
                     user: dbUser.accountCode,
                     password: process.env.DB_TENANT_PASS,
                 }
