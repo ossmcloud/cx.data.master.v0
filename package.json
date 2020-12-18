@@ -17,8 +17,8 @@
   },
   "homepage": "https://github.com/ossmcloud/cx.data.master.v0#readme",
   "dependencies": {
-    "cx-core": "file:../cx.core.v0",
-    "cx-data": "file:../cx.data.v0",
+    "cx-core": "git+https://ossmcloud:ossm$1234!@github.com/ossmcloud/cx.core.v0.git",
+    "cx-data": "git+https://ossmcloud:ossm$1234!@github.com/ossmcloud/cx.data.v0.git",
     "md5": "^2.2.1",
     "mssql": "^6.2.0",
     "nodemailer": "^6.4.8"
