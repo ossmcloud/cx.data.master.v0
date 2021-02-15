@@ -24,7 +24,7 @@ module.exports = {
     },
 
     getPools: _cx_data.getPools,
- 
+    countPools: _cx_data.countPools,
 
 
 }

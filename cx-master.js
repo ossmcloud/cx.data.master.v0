@@ -21,6 +21,7 @@ module.exports = {
     },
 
     getPools: _cx_context.getPools,
+    countPools: _cx_context.countPools,
 
 
 }
