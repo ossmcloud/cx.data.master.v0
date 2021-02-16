@@ -11,7 +11,7 @@ function _sendEmail(options) {
     }
 
     var transporter = nodemailer.createTransport({
-        host: options.host || 'smtp.office365.com', // Office 365 server
+        host: options.host || 'smtp.reg365.net', // Office 365 server
         port: options.port || 587,     // secure SMTP
         secure: options.secure || false, // false for TLS - as a boolean not string - but the default is false so just remove this completely
         auth: options.auth,
@@ -40,8 +40,8 @@ function _sendEmail(options) {
 
 
 function EMailer(options) {
-    this.user = options.user || process.env.EMAIL_FROM || 'noreply@envisagecloud.net';
-    this.pass = options.pass || process.env.EMAIL_FROM_P || '3nv1Sage';
+    this.user = options.user || process.env.EMAIL_FROM || 'noreply@cloudcx.ie';
+    this.pass = options.pass || process.env.EMAIL_FROM_P || 'cx@NoR3ply!';
 
     this.send = async function (options) {
         console.log('sending 2FA email...');
