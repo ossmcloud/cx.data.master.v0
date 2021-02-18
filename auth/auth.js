@@ -184,7 +184,10 @@ function DBAuth(options) {
             theme: dbUser.theme,
             requireTfa: true,
             dbConfig: {
+                // TODO: @CHECK: this will create a pool per user, but not sure if that's what I want
+                //name: 'cx_' + dbUser.lastAccountId + '_' + dbUser.loginId,
                 name: 'cx_' + dbUser.lastAccountId,
+
                 // TODO: this is stored on local cookie and would not work, see TODO.txt on how to fix
                 config: {
                     server: dbUser.serverName,
