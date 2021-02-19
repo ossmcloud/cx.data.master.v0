@@ -184,7 +184,7 @@ function DBAuth(options) {
             theme: dbUser.theme,
             requireTfa: true,
             dbConfig: {
-                // TODO: @CHECK: this will create a pool per user, but not sure if that's what I want
+                // @REVIEW: this will create a pool per user, but not sure if that's what I want
                 //name: 'cx_' + dbUser.lastAccountId + '_' + dbUser.loginId,
                 name: 'cx_' + dbUser.lastAccountId,
 
@@ -200,7 +200,7 @@ function DBAuth(options) {
     }
 
     this.logoutUser = async function (request) {
-        // TODO: ADD AUDIT FOR LOG OUT
+        // @WILLDO: ADD AUDIT FOR LOG OUT
 
 
     }
