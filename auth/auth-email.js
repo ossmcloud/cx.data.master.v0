@@ -30,6 +30,7 @@ function _sendEmail(options) {
         attachments: options.attachments,
     }, function (err, info) {
         if (err && options.onError) {
+            console.log('Email Sending Error', err);
             options.onError(err);
         }
         else if (options.onSuccess) {
@@ -40,8 +41,9 @@ function _sendEmail(options) {
 
 
 function EMailer(options) {
-    this.user = options.user || process.env.EMAIL_FROM || 'noreply@cloudcx.ie';
-    this.pass = options.pass || process.env.EMAIL_FROM_P || 'cx@NoR3ply!';
+    if (!options) { options = {}; }
+    this.user = options.user || process.env.EMAIL_FROM;
+    this.pass = options.pass || process.env.EMAIL_FROM_P;
 
     this.send = async function (options) {
         console.log('sending 2FA email...');
