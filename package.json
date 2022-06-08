@@ -1,26 +1,26 @@
 {
-  "name": "cx-data-master",
-  "version": "1.0.0",
-  "description": "",
-  "main": "cx-master.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/ossmcloud/cx.data.master.v0.git"
-  },
-  "author": "peppo",
-  "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/ossmcloud/cx.data.master.v0/issues"
-  },
-  "homepage": "https://github.com/ossmcloud/cx.data.master.v0#readme",
-  "dependencies": {
-    "cx-core": "git+https://github.com/ossmcloud/cx.core.v0.git",
-    "cx-data": "git+https://github.com/ossmcloud/cx.data.v0.git",
-    "md5": "^2.2.1",
-    "mssql": "^6.3.0",
-    "nodemailer": "^6.4.17"
-  }
+    "name": "cx-data-master",
+    "version": "1.0.0",
+    "description": "",
+    "main": "cx-master.js",
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/ossmcloud/cx.data.master.v0.git"
+    },
+    "author": "peppo",
+    "license": "ISC",
+    "bugs": {
+        "url": "https://github.com/ossmcloud/cx.data.master.v0/issues"
+    },
+    "homepage": "https://github.com/ossmcloud/cx.data.master.v0#readme",
+    "dependencies": {
+        "cx-core": "file:../cx.core.v0",
+        "cx-data": "file:../cx.data.v0",
+        "md5": "^2.2.1",
+        "mssql": "^6.3.0",
+        "nodemailer": "^6.4.17"
+    }
 }
