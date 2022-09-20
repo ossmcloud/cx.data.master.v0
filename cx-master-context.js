@@ -3,13 +3,17 @@
 const _path = require('path');
 const _cx_data = require('cx-data');
 const md5 = require('md5');
-//const _cx_auth = require('./auth/cx-master-auth');
+const _tfa = require("node-2fa");
 
 class CXMasterContext extends _cx_data.DBContext {
     constructor(pool) {
         super(pool, _path.join(__dirname, 'business'));
     }
 
+    // createTfaKey() {
+    //     const newSecret = _tfa.generateSecret({ name: 'cloud-cx' });
+    //     return newSecret;
+    // }
 
     async getMasterLogin(options) {
         var loginId = await this.fetchMasterLogin(options.email);
@@ -34,22 +38,26 @@ class CXMasterContext extends _cx_data.DBContext {
     }
 
     async addMasterLogin(options) {
+        const newSecret = _tfa.generateSecret({ name: 'cloud-cx' });
+
         options.pass = options.email.substr(0, options.email.indexOf('@'));
         var query = {
             sql: `  insert into accountLogin
-                        (loginType, email, pass, status, firstName, lastName, lastLoginAttempts, lastAccountId)
+                        (loginType, email, pass, status, firstName, lastName, lastLoginAttempts, lastAccountId, tfaKey, tfaQr)
                     values 
-                            (@loginType, @email, @pass, @status, @firstName, @lastName, @lastLoginAttempts, @lastAccountId)
+                            (@loginType, @email, @pass, @status, @firstName, @lastName, @lastLoginAttempts, @lastAccountId, @tfaKey, @tfaQr)
                     select SCOPE_IDENTITY() as [id] `,
             params: [
                 { name: 'loginType', value: 1 },
                 { name: 'email', value: options.email },
                 { name: 'pass', value: md5(options.pass) },
-                { name: 'status', value: 1 },
+                { name: 'status', value: 0 },
                 { name: 'firstName', value: options.firstName },
                 { name: 'lastName', value: options.lastName },
                 { name: 'lastLoginAttempts', value: 0 },
                 { name: 'lastAccountId', value: options.accountId },
+                { name: 'tfaKey', value: newSecret.secret },
+                { name: 'tfaQr', value: newSecret.qr },
             ],
             noResult: 'null',
             returnFirst: true,
