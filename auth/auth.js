@@ -4,6 +4,7 @@ const md5 = require('md5');
 
 const _core = require('cx-core');
 const _cx = require('../cx-master-context');
+const _tfa = require("node-2fa");
 
 const errorCodes = {
     invalidUser: 'F:INVALID_USER',
@@ -12,6 +13,8 @@ const errorCodes = {
     inactiveUser: 'F:INACTIVE_USER',
     lockedUser: 'F:LOCKED_USER',
     deletedUser: 'F:DELETED_USER',
+    notVerifiedUser: 'F:NOT_VERIFIED',
+    verifiedUser: 'F:VERIFIED',
     passExpired: 'F:PASS_EXPIRED',
     newPassMismatch: 'F:NEW_PASS_MISMATCH',
     newPassNoSame: 'F:NEW_PASS_NO_SAME',
@@ -135,6 +138,8 @@ function DBAuth(options) {
         var dbUser = await getUser(db, token);
         if (dbUser == null) { return errorCodes.invalidUser; }
         // check user statuses
+        if (dbUser.status == -1) { return await logAudit(request, db, dbUser, errorCodes.notVerifiedUser, token.id); }
+        //if (dbUser.status == 0) { return await logAudit(request, db, dbUser, errorCodes.verifiedUser, token.id); }
         if (dbUser.status == 9) { return await logAudit(request, db, dbUser, errorCodes.lockedUser, token.id); }
         if (dbUser.status == 99) { return await logAudit(request, db, dbUser, errorCodes.deletedUser, token.id); }
 
@@ -164,12 +169,34 @@ function DBAuth(options) {
         // check for expired passwords
         var passAgeInDays = _core.date.now() - dbUser.lastPassChange;
         passAgeInDays = (((passAgeInDays / 1000) / 60) / 60) / 24;
-        if (passAgeInDays > configs.passwordAgeInDays || dbUser.status == 0) {
+        if (passAgeInDays > configs.passwordAgeInDays && dbUser.status > 0) {
             return await logAudit(request, db, dbUser, errorCodes.passExpired);
         }
 
         // create session id if we have a login-token
         if (token.id === undefined) { token.id = await logAudit(request, db, dbUser); }
+
+        var tfaInfo = null;
+        if (dbUser.status == 0) {
+            if (!dbUser.tfaKey) {
+                const newSecret = _tfa.generateSecret({ name: 'cloud-cx' });
+                dbUser.tfaKey = newSecret.secret;
+                dbUser.tfaQr = newSecret.qr;
+
+                await db.exec({
+                    sql: `update accountLogin set tfaKey = @tfaKey, tfaQr = @tfaQr where loginId = @loginId`,
+                    params: [
+                        { name: 'tfaKey', value: dbUser.tfaKey },
+                        { name: 'tfaQr', value: dbUser.tfaQr },
+                        { name: 'loginId', value: dbUser.loginId }
+                    ]
+                });
+            }
+            tfaInfo = {
+                key: dbUser.tfaKey,
+                qr: dbUser.tfaQr,
+            }
+        }
 
         // return new/edited token
         return {
@@ -181,8 +208,10 @@ function DBAuth(options) {
             accountId: dbUser.lastAccountId,
             accountName: dbUser.accountName,
             accountCode: dbUser.accountCode,
-            theme: dbUser.theme,
+            theme: dbUser.theme || 'light',
             requireTfa: true,
+            tfaInfo: tfaInfo,
+            status: dbUser.status,
             dbConfig: {
                 // @REVIEW: this will create a pool per user, but not sure if that's what I want
                 //
@@ -228,7 +257,7 @@ function DBAuth(options) {
             if (await getUserPassHistory(db, dbUser.loginId, token.passwordNew) != null) { return errorCodes.newPassAlreadyUsed; }
 
             // set new password
-            var query = 'update accountLogin set pass = @newPass, status = 1, lastPassChange = GetDate() where loginId = @loginId';
+            var query = 'update accountLogin set pass = @newPass, lastPassChange = GetDate() where loginId = @loginId';
             query += ' insert into accountLoginPassHistory (loginId, dateSet, pass) values (@loginId, GetDate(), @newPass)'
 
 
@@ -248,32 +277,73 @@ function DBAuth(options) {
     }
 
 
+    this.verifyViaTfa = async function (tfaCode) {
+        var db = await _cx.get(this.connString);
+        var result = await db.exec({
+            sql: 'select loginAuditTFAId, dateExpiry, loginId from accountLoginAuditTFA where twoFactorAuthCode = @twoFactorAuthCode',
+            params: [{ name: 'twoFactorAuthCode', value: tfaCode }]
+        });
+        if (result.count == 0) { return 'your account<br />could not be verified:<br /><b>invalid key</b>'; }
 
+        var tfaInfo = result.first();
+        if (tfaInfo.dateExpiry < new Date()) { return 'your account<br />could not be verified:<br /><b>link expired</b>'; }
+        
+        
+        var result = await db.exec({
+            sql: 'update accountLogin set status = 0 where loginId = @loginId and status = -1',
+            params: [{ name: 'loginId', value: tfaInfo.loginId }]
+        });
+
+        if (result.rowsAffected == 0) { return 'your account<br />could not be verified:<br /><b>invalid status</b>'; }
+    
+        await db.exec({
+            sql: 'update accountLoginAuditTFA set dateUsed = GETDATE() where loginAuditTFAId = @loginAuditTFAId',
+            params: [{ name: 'loginAuditTFAId', value: tfaInfo.loginAuditTFAId }]
+        });
+    
+        return '<span style="color: darkgreen;">account successfully verified</span>';
+    }
 
     this.validateUser2fa = async function (request) {
         var token = request.payload;
         var db = await _cx.get(this.connString);
 
-        var result = await db.exec({
-            sql: 'select loginAuditTFAId, dateExpiry from accountLoginAuditTFA where loginId = @loginId and twoFactorAuthCode = @twoFactorAuthCode',
-            params: [
-                { name: 'loginId', value: request.auth.credentials.userId },
-                { name: 'twoFactorAuthCode', value: token.tfaCode }
-            ]
-        });
-        if (result.count == 0) { return 'F:INVALID_2FA_CODE'; }
-        if (result.first().dateExpiry < new Date()) {
-            return 'F:EXPIRED_2FA_CODE';
+        if (token.emailSend === 'true') {
+            return 'sendTfaCode';
+            
+        } else if (token.emailSent === 'true') {
+            var result = await db.exec({
+                sql: 'select loginAuditTFAId, dateExpiry from accountLoginAuditTFA where loginId = @loginId and twoFactorAuthCode = @twoFactorAuthCode',
+                params: [
+                    { name: 'loginId', value: request.auth.credentials.userId },
+                    { name: 'twoFactorAuthCode', value: token.tfaCode }
+                ]
+            });
+            if (result.count == 0) { return 'F:INVALID_2FA_CODE'; }
+            if (result.first().dateExpiry < new Date()) { return 'F:EXPIRED_2FA_CODE'; }
+
+            await db.exec({
+                sql: 'update accountLoginAuditTFA set dateUsed = GETDATE() where loginAuditTFAId = @loginAuditTFAId',
+                params: [
+                    { name: 'loginAuditTFAId', value: result.first().loginAuditTFAId }
+                ]
+            });
+        } else { 
+            var result = await db.exec({
+                sql: 'select tfaKey from accountLogin where loginId = @loginId',
+                params: [
+                    { name: 'loginId', value: request.auth.credentials.userId },
+                ]
+            });
+            if (result.count == 0) { return 'F:INVALID_2FA_LOGIN'; }
+
+            var resp = _tfa.verifyToken(result.first().tfaKey, token.tfaCode);
+            if (!resp) { return 'F:INVALID_2FA_CODE'; }
+            if (resp.delta < 0) { return 'F:EXPIRED_2FA_CODE'; }
+            if (resp.delta > 0) { return 'F:UNBORN_2FA_CODE'; }
+
         }
-
-        await db.exec({
-            sql: 'update accountLoginAuditTFA set dateUsed = GETDATE() where loginAuditTFAId = @loginAuditTFAId',
-            params: [
-                { name: 'loginAuditTFAId', value: result.first().loginAuditTFAId }
-            ]
-        });
-
-
+        
         return true;
     }
 
@@ -300,6 +370,14 @@ function DBAuth(options) {
             subject: 'cx 2FA code',
             body: '<span style="font: Verdana">Your 2fa code:<br /><br /><div style="border: 1px solid red; padding: 13px; font-weight: bold; font-size: 24px; background-color: silver;">' + tfa + '</div><br /><b>NOTE: this code will expire in about 15 minutes.</span>'
         };
+    }
+
+    this.setLoginActive = async function (userId) {
+        var db = await _cx.get(this.connString);
+        await db.exec({
+            sql: 'update accountLogin set status = 1 where loginId = @loginId',
+            params: [{ name: 'loginId', value: userId }]
+        });
     }
 
     this.getUserAccounts = async function (userId) {

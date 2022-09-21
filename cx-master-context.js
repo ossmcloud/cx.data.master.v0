@@ -4,6 +4,27 @@ const _path = require('path');
 const _cx_data = require('cx-data');
 const md5 = require('md5');
 const _tfa = require("node-2fa");
+const { toUSVString } = require('util');
+
+const _loginStatus = {
+    NOT_VERIFIED: -1,
+    VERIFIED: 0,
+    ACTIVE: 1,
+    LOCKED: 9,
+    DELETED: 99,
+}
+
+
+function addMinutes(d, m) {
+    var value = d.getTime() + (m * 60000);
+    return new Date(value);
+}
+function padLeft(str, size, char) {
+    if (char == undefined) { char = " "; }
+    var s = String(str);
+    while (s.length < (size || 2)) { s = char + s; }
+    return s.substring(0, size);
+}
 
 class CXMasterContext extends _cx_data.DBContext {
     constructor(pool) {
@@ -15,16 +36,54 @@ class CXMasterContext extends _cx_data.DBContext {
     //     return newSecret;
     // }
 
-    async getMasterLogin(options) {
-        var loginId = await this.fetchMasterLogin(options.email);
-        if (!loginId) {
-            loginId = await this.addMasterLogin(options);
-        }
-        await this.addLoginAccount(options.accountId, loginId);
-        return loginId;
+    
+    async generate2Fa(loginId) {
+        var tfa = 0;
+        while (tfa < 10000) { tfa = Math.floor(Math.random() * 100000000) + 1; }
+        tfa = padLeft(tfa, 8, '0');
+
+        var dt = new Date();
+        var dtExp = addMinutes(dt, 15);
+
+        await this.exec({
+            sql: 'insert into accountLoginAuditTFA (loginId, twoFactorAuthCode, dateCreated, dateExpiry) values (@loginId, @twoFactorAuthCode, @dateCreated, @dateExpiry)',
+            params: [
+                { name: 'loginId', value: loginId },
+                { name: 'twoFactorAuthCode', value: tfa },
+                { name: 'dateCreated', value: dt },
+                { name: 'dateExpiry', value: dtExp },
+            ]
+        });
+
+        return tfa;
     }
 
-    async fetchMasterLogin(email) {
+    async getMasterLoginInfo(loginId) {
+        var query = {
+            sql: `  select  loginId, status, tfaKey, tfaQr
+                    from    accountLogin
+                    where   loginId = @loginId`,
+            params: [{ name: 'loginId', value: loginId }],
+            noResult: 'null',
+            returnFirst: true,
+        }
+        var res = await this.exec(query);
+        return res;
+    }
+
+    async getMasterLogin(options) {
+        var login = await this.fetchMasterLogin(options.email);
+        if (!login) {
+            login = await this.addMasterLogin(options);
+        }
+        await this.addLoginAccount(options.accountId, login.loginId || login);
+        return {
+            id: login.loginId || login,
+            isNew: login.isNew || false,
+        };
+    }
+
+    async fetchMasterLogin(email, returnObject) {
         var query = {
             sql: `  select  loginId
                     from    accountLogin
@@ -34,6 +93,7 @@ class CXMasterContext extends _cx_data.DBContext {
             returnFirst: true,
         }
         var res = await this.exec(query);
+        if (returnObject) { return res; }
         if (res != null) { return res.loginId; }
     }
 
@@ -46,12 +106,12 @@ class CXMasterContext extends _cx_data.DBContext {
                         (loginType, email, pass, status, firstName, lastName, lastLoginAttempts, lastAccountId, tfaKey, tfaQr)
                     values 
                             (@loginType, @email, @pass, @status, @firstName, @lastName, @lastLoginAttempts, @lastAccountId, @tfaKey, @tfaQr)
-                    select SCOPE_IDENTITY() as [id] `,
+                    select * from accountLogin where loginId = SCOPE_IDENTITY()`,
             params: [
                 { name: 'loginType', value: 1 },
                 { name: 'email', value: options.email },
                 { name: 'pass', value: md5(options.pass) },
-                { name: 'status', value: 0 },
+                { name: 'status', value: _loginStatus.NOT_VERIFIED },
                 { name: 'firstName', value: options.firstName },
                 { name: 'lastName', value: options.lastName },
                 { name: 'lastLoginAttempts', value: 0 },
@@ -63,8 +123,10 @@ class CXMasterContext extends _cx_data.DBContext {
             returnFirst: true,
         }
         var res = await this.exec(query);
-
-        return res.id; 
+        if (res) {
+            res.isNew = true;
+        }
+        return res; 
     }
 
     async addLoginAccount(accountId, loginId) {
