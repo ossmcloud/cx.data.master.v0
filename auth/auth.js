@@ -179,9 +179,9 @@ function DBAuth(options) {
         var tfaInfo = null;
         if (dbUser.status == 0) {
             if (!dbUser.tfaKey) {
-                const newSecret = _tfa.generateSecret({ name: 'cloud-cx' });
+                const newSecret = _tfa.generateSecret({ name: 'cloud-cx', account: dbUser.email });
                 dbUser.tfaKey = newSecret.secret;
-                dbUser.tfaQr = newSecret.qr;
+                dbUser.tfaQr = newSecret.qr.replace('chs=166x166', 'chs=250x250');
 
                 await db.exec({
                     sql: `update accountLogin set tfaKey = @tfaKey, tfaQr = @tfaQr where loginId = @loginId`,

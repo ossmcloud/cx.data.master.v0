@@ -119,14 +119,14 @@ class CXMasterContext extends _cx_data.DBContext {
     }
 
     async addMasterLogin(options) {
-        const newSecret = _tfa.generateSecret({ name: 'cloud-cx' });
+        const newSecret = _tfa.generateSecret({ name: 'cloud-cx', account: options.email });
 
         options.pass = options.email.substr(0, options.email.indexOf('@'));
         var query = {
             sql: `  insert into accountLogin
-                        (loginType, email, pass, status, firstName, lastName, lastLoginAttempts, lastAccountId, tfaKey, tfaQr)
+                        (loginType, email, pass, status, firstName, lastName, lastLoginAttempts, lastAccountId, tfaKey, tfaQr, theme)
                     values 
-                            (@loginType, @email, @pass, @status, @firstName, @lastName, @lastLoginAttempts, @lastAccountId, @tfaKey, @tfaQr)
+                            (@loginType, @email, @pass, @status, @firstName, @lastName, @lastLoginAttempts, @lastAccountId, @tfaKey, @tfaQr, 'light')
                     select * from accountLogin where loginId = SCOPE_IDENTITY()`,
             params: [
                 { name: 'loginType', value: 1 },
@@ -138,7 +138,7 @@ class CXMasterContext extends _cx_data.DBContext {
                 { name: 'lastLoginAttempts', value: 0 },
                 { name: 'lastAccountId', value: options.accountId },
                 { name: 'tfaKey', value: newSecret.secret },
-                { name: 'tfaQr', value: newSecret.qr },
+                { name: 'tfaQr', value: newSecret.qr.replace('chs=166x166', 'chs=250x250') },
             ],
             noResult: 'null',
             returnFirst: true,
