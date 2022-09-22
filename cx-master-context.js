@@ -36,7 +36,7 @@ class CXMasterContext extends _cx_data.DBContext {
     //     return newSecret;
     // }
 
-    
+
     async generate2Fa(loginId) {
         var tfa = 0;
         while (tfa < 10000) { tfa = Math.floor(Math.random() * 100000000) + 1; }
@@ -56,6 +56,27 @@ class CXMasterContext extends _cx_data.DBContext {
         });
 
         return tfa;
+    }
+
+    async manualVerify(loginId) {
+        var result = await this.exec({
+            sql: 'update accountLogin set status = 0 where loginId = @loginId and status = -1',
+            params: [{ name: 'loginId', value: loginId }]
+        });
+
+        if (result.rowsAffected == 0) { return 'your account<br />could not be verified:<br /><b>invalid status</b>'; }
+    }
+
+    async manualReset(loginId, pass) {
+        await this.exec({
+            sql: "update accountLogin set status = -1, pass = @pass, tfaKey = null, lastPassChange = '2000-01-01', lastLoginAttempts = 0 where loginId = @loginId",
+            params: [
+                { name: 'loginId', value: loginId },
+                { name: 'pass', value: md5(pass) }
+            ]
+
+        });
+
     }
 
     async getMasterLoginInfo(loginId) {
@@ -126,7 +147,7 @@ class CXMasterContext extends _cx_data.DBContext {
         if (res) {
             res.isNew = true;
         }
-        return res; 
+        return res;
     }
 
     async addLoginAccount(accountId, loginId) {
