@@ -177,7 +177,7 @@ function DBAuth(options) {
         if (token.id === undefined) { token.id = await logAudit(request, db, dbUser); }
 
         var tfaInfo = null;
-        if (dbUser.status == 0) {
+        if (dbUser.status <= 0) {
             if (!dbUser.tfaKey) {
                 const newSecret = _tfa.generateSecret({ name: 'cloud-cx', account: dbUser.email });
                 dbUser.tfaKey = newSecret.secret;
@@ -277,31 +277,70 @@ function DBAuth(options) {
     }
 
 
-    this.verifyViaTfa = async function (tfaCode) {
-        var db = await _cx.get(this.connString);
-        var result = await db.exec({
-            sql: 'select loginAuditTFAId, dateExpiry, loginId from accountLoginAuditTFA where twoFactorAuthCode = @twoFactorAuthCode',
-            params: [{ name: 'twoFactorAuthCode', value: tfaCode }]
-        });
-        if (result.count == 0) { return 'your account<br />could not be verified:<br /><b>invalid key</b>'; }
+    this.verifyViaTfa = async function (tfaCode, verifiedInfo) {
+        try {
+            var db = await _cx.get(this.connString);
+            var result = await db.exec({
+                sql: 'select loginAuditTFAId, dateExpiry, l.loginId, l.email, l.tfaKey, l.tfaQr from accountLoginAuditTFA a, accountLogin l where a.loginId = l.loginId and twoFactorAuthCode = @twoFactorAuthCode',
+                params: [{ name: 'twoFactorAuthCode', value: tfaCode }]
+            });
+            if (result.count == 0) { throw new Error('your account<br />could not be verified:<br /><b>invalid key</b>'); }
 
-        var tfaInfo = result.first();
-        if (tfaInfo.dateExpiry < new Date()) { return 'your account<br />could not be verified:<br /><b>link expired</b>'; }
-        
-        
-        var result = await db.exec({
-            sql: 'update accountLogin set status = 0 where loginId = @loginId and status = -1',
-            params: [{ name: 'loginId', value: tfaInfo.loginId }]
-        });
+            var tfaInfo = result.first();
+            if (tfaInfo.dateExpiry < new Date()) { throw new Error('your account<br />could not be verified:<br /><b>link expired</b>'); }
 
-        if (result.rowsAffected == 0) { return 'your account<br />could not be verified:<br /><b>invalid status</b>'; }
-    
-        await db.exec({
-            sql: 'update accountLoginAuditTFA set dateUsed = GETDATE() where loginAuditTFAId = @loginAuditTFAId',
-            params: [{ name: 'loginAuditTFAId', value: tfaInfo.loginAuditTFAId }]
-        });
-    
-        return '<span style="color: darkgreen;">account successfully verified</span>';
+            var message = '';
+            if (verifiedInfo) {
+
+                var result = await db.exec({
+                    sql: 'update accountLogin set status = 1, pass = @pass, lastPassChange = GetDate() where loginId = @loginId and status = -1',
+                    params: [
+                        { name: 'loginId', value: tfaInfo.loginId },
+                        { name: 'pass', value: md5(verifiedInfo.password) },
+                    ]
+                });
+
+                if (result.rowsAffected == 0) { throw new Error('your account<br />could not be verified:<br /><b>invalid status</b>'); }
+
+                await db.exec({
+                    sql: 'update accountLoginAuditTFA set dateUsed = GETDATE() where loginAuditTFAId = @loginAuditTFAId',
+                    params: [{ name: 'loginAuditTFAId', value: tfaInfo.loginAuditTFAId }]
+                });
+                message = '<span style="color: darkgreen;">account successfully verified</span>';
+
+            } else {
+                message = '<span style="color: darkgreen;">set a password<br />store the 2fa barcode</span>';
+
+                if (!tfaInfo.tfaKey) {
+                    const newSecret = _tfa.generateSecret({ name: 'cloud-cx', account: tfaInfo.email });
+                    tfaInfo.tfaKey = newSecret.secret;
+                    tfaInfo.tfaQr = newSecret.qr.replace('chs=166x166', 'chs=250x250');
+
+                    await db.exec({
+                        sql: `update accountLogin set tfaKey = @tfaKey, tfaQr = @tfaQr where loginId = @loginId`,
+                        params: [
+                            { name: 'tfaKey', value: tfaInfo.tfaKey },
+                            { name: 'tfaQr', value: tfaInfo.tfaQr },
+                            { name: 'loginId', value: tfaInfo.loginId }
+                        ]
+                    });
+                }
+            }
+
+            return {
+                verifyKey: tfaCode,
+                email: tfaInfo.email,
+                loginId: tfaInfo.loginId,
+                tfaKey: tfaInfo.tfaKey,
+                tfaQr: tfaInfo.tfaQr,
+                message: message
+            }
+        } catch (error) {
+            return {
+                loginId: null,
+                message: error.message,
+            }
+        }
     }
 
     this.validateUser2fa = async function (request) {
@@ -310,7 +349,7 @@ function DBAuth(options) {
 
         if (token.emailSend === 'true') {
             return 'sendTfaCode';
-            
+
         } else if (token.emailSent === 'true') {
             var result = await db.exec({
                 sql: 'select loginAuditTFAId, dateExpiry from accountLoginAuditTFA where loginId = @loginId and twoFactorAuthCode = @twoFactorAuthCode',
@@ -328,7 +367,7 @@ function DBAuth(options) {
                     { name: 'loginAuditTFAId', value: result.first().loginAuditTFAId }
                 ]
             });
-        } else { 
+        } else {
             var result = await db.exec({
                 sql: 'select tfaKey from accountLogin where loginId = @loginId',
                 params: [
@@ -343,7 +382,7 @@ function DBAuth(options) {
             if (resp.delta > 0) { return 'F:UNBORN_2FA_CODE'; }
 
         }
-        
+
         return true;
     }
 
