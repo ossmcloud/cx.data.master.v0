@@ -490,6 +490,19 @@ function DBAuth(options) {
         }
     }
 
+    this.loginResetByUser = async function (email) {
+        var db = await _cx.get(this.connString);
+        var isNew = false;
+        var loginId = await this.getAccountLogin(db, email);
+        if (!loginId) { throw new Error('Unknown email address'); }
+        
+        await db.manualReset(loginId, email.substr(0, email.indexOf('@')));
+
+        var verifyCode = await db.generate2Fa(loginId);
+
+        return verifyCode;
+    }
+
 }
 
 
