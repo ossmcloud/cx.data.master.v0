@@ -405,10 +405,7 @@ function DBAuth(options) {
             ]
         });
 
-        return {
-            subject: 'cx 2FA code',
-            body: '<span style="font: Verdana">Your 2fa code:<br /><br /><div style="border: 1px solid red; padding: 13px; font-weight: bold; font-size: 24px; background-color: silver;">' + tfa + '</div><br /><b>NOTE: this code will expire in about 15 minutes.</span>'
-        };
+        return tfa;
     }
 
     this.setLoginActive = async function (userId) {
