@@ -121,7 +121,14 @@ function padLeft(str, size, char) {
 
 
 
-
+async function getAppStatus(db, accountId) {
+    var sql = 'select message, additionalInfo from appStatus where active=1 and (accountId = @accountId or accountId = -1)';
+    var result = await db.exec({
+        sql: sql,
+        params: { name: 'accountId', value: accountId }
+    });
+    return result.first();
+}
 
 
 
@@ -197,6 +204,7 @@ function DBAuth(options) {
                 qr: dbUser.tfaQr,
             }
         }
+        var appStatus = await getAppStatus(db, dbUser.lastAccountId);
 
         // return new/edited token
         return {
@@ -225,7 +233,8 @@ function DBAuth(options) {
                     user: dbUser.accountCode,
                     password: process.env.DB_TENANT_PASS,
                 }
-            }
+            },
+            appStatus: appStatus
         };
     }
 
@@ -495,7 +504,7 @@ function DBAuth(options) {
         var isNew = false;
         var loginId = await this.getAccountLogin(db, email);
         if (!loginId) { throw new Error('Unknown email address'); }
-        
+
         await db.manualReset(loginId, email.substr(0, email.indexOf('@')));
 
         var verifyCode = await db.generate2Fa(loginId);
