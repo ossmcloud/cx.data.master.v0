@@ -123,14 +123,14 @@ function padLeft(str, size, char) {
 
 async function getAppStatus(db, dbUser) {
     // NOTE: do not check app status if user is from cloud-cx staff
-    if (dbUser.loginType < _cx.LoginType.CX_SUPPORT) {
+    //if (dbUser.loginType < _cx.LoginType.CX_SUPPORT) {
         var sql = 'select message, additionalInfo from appStatus where active=1 and (accountId = @accountId or accountId = -1)';
         var result = await db.exec({
             sql: sql,
             params: { name: 'accountId', value: dbUser.lastAccountId }
         });
         return result.first();
-    }
+    //}
 }
 
 
