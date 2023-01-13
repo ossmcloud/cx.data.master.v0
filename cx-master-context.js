@@ -14,6 +14,12 @@ const _loginStatus = {
     DELETED: 99,
 }
 
+const _loginType = {
+    USER: 1,            // all client's users
+    CX_SUPPORT: 8,      // gerry
+    CX_MASTER: 9        // myself and Laco
+}
+
 
 function addMinutes(d, m) {
     var value = d.getTime() + (m * 60000);
@@ -177,6 +183,7 @@ class CXMasterContext extends _cx_data.DBContext {
 
 module.exports = {
     //Schema: _cx_client_schema,
+    LoginType: _loginType,
 
     get: async function (config) {
         //var db_pool = await _cx_sql.get(config);
