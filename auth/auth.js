@@ -234,6 +234,7 @@ function DBAuth(options) {
                     server: dbUser.serverName,
                     database: dbUser.dbName,
                     user: dbUser.accountCode,
+                    // @IMPORTANT TODO: this password should becoming from db but it is encrypted there with a c# routine I do not have for javascript
                     password: process.env.DB_TENANT_PASS,
                 }
             },
