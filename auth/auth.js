@@ -142,6 +142,42 @@ function DBAuth(options) {
     this.connString = options;
     this.errorCodes = errorCodes;
 
+    this.validateOAuthCallBack = async function (accountId, userId) {
+        var db = await _cx.get(this.connString);
+
+        var sql = `select	l.*, a.[Code] as accountCode, a.dbName, a.serverName
+                    from	accountLogins l
+                    left outer join account a on l.accountId = a.id
+                    where   l.accountId = @accountId
+                    and		l.accountLoginId = @accountLoginId`
+        var result = await db.exec({
+            sql: sql,
+            params: [{ name: 'accountId', value: accountId }, { name: 'accountLoginId', value: userId }],
+            returnFirst: true,
+        });
+        if (!result) { throw new Error('Invalid OAuth Callback Validate Request'); }
+
+
+        return {
+            userId: userId,
+            accountId: accountId,
+            dbConfig: {
+                
+                // @REVIEW: this will create a pool per user, but not sure if that's what I want
+                //
+                name: 'cx_oauth_' + accountId + '_' + userId,
+                // TODO: this is stored on local cookie and would not work, see TODO.txt on how to fix
+                config: {
+                    server: result.serverName,
+                    database: result.dbName,
+                    user: result.accountCode,
+                    // @IMPORTANT TODO: this password should becoming from db but it is encrypted there with a c# routine I do not have for javascript
+                    password: process.env.DB_TENANT_PASS,
+                }
+            }
+        }
+    }
+
     this.validateUser = async function (request, token) {
         var db = await _cx.get(this.connString);
         // get user
