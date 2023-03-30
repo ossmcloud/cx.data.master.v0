@@ -158,7 +158,7 @@ function DBAuth(options) {
         });
         if (!result) { throw new Error('Invalid OAuth Callback Validate Request'); }
 
-        var serverPass = _cx_crypto.Aes.decrypt(dbUser.serverPass, dbUser.accountCode);
+        var serverPass = _cx_crypto.Aes.decrypt(result.serverPass, result.accountCode);
         return {
             userId: userId,
             accountId: accountId,
