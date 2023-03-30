@@ -5,6 +5,7 @@ const md5 = require('md5');
 const _core = require('cx-core');
 const _cx = require('../cx-master-context');
 const _tfa = require("node-2fa");
+const _cx_crypto = require('cx-core/core/cx-crypto');
 
 const errorCodes = {
     invalidUser: 'F:INVALID_USER',
@@ -28,7 +29,7 @@ const configs = {
 
 async function getUser(db, token) {
     if (!token || !token.username) { return null; }
-    var sql = `select	l.*, a.[name] as accountName, a.[Code] as accountCode, a.dbName, a.serverName
+    var sql = `select	l.*, a.[name] as accountName, a.[Code] as accountCode, a.dbName, a.serverName, a.serverPass
                 from	accountLogin l
                 left outer join account a on l.lastAccountId = a.id
                 where   l.email = @email`
@@ -145,7 +146,7 @@ function DBAuth(options) {
     this.validateOAuthCallBack = async function (accountId, userId) {
         var db = await _cx.get(this.connString);
 
-        var sql = `select	l.*, a.[Code] as accountCode, a.dbName, a.serverName
+        var sql = `select	l.*, a.[Code] as accountCode, a.dbName, a.serverName, a.serverPass
                     from	accountLogins l
                     left outer join account a on l.accountId = a.id
                     where   l.accountId = @accountId
@@ -157,7 +158,7 @@ function DBAuth(options) {
         });
         if (!result) { throw new Error('Invalid OAuth Callback Validate Request'); }
 
-
+        var serverPass = _cx_crypto.Aes.decrypt(dbUser.serverPass, dbUser.accountCode);
         return {
             userId: userId,
             accountId: accountId,
@@ -171,8 +172,7 @@ function DBAuth(options) {
                     server: result.serverName,
                     database: result.dbName,
                     user: result.accountCode,
-                    // @IMPORTANT TODO: this password should becoming from db but it is encrypted there with a c# routine I do not have for javascript
-                    password: process.env.DB_TENANT_PASS,
+                    password: serverPass
                 }
             }
         }
@@ -246,6 +246,7 @@ function DBAuth(options) {
         var appStatus = await getAppStatus(db, dbUser);
 
         // return new/edited token
+        var serverPass = _cx_crypto.Aes.decrypt(dbUser.serverPass, dbUser.accountCode);
         return {
             username: dbUser.email,
             name: dbUser.firstName + ' ' + dbUser.lastName,
@@ -270,8 +271,7 @@ function DBAuth(options) {
                     server: dbUser.serverName,
                     database: dbUser.dbName,
                     user: dbUser.accountCode,
-                    // @IMPORTANT TODO: this password should becoming from db but it is encrypted there with a c# routine I do not have for javascript
-                    password: process.env.DB_TENANT_PASS,
+                    password: serverPass,
                 }
             },
             appStatus: appStatus
