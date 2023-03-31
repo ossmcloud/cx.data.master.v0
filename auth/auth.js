@@ -246,7 +246,8 @@ function DBAuth(options) {
         var appStatus = await getAppStatus(db, dbUser);
 
         // return new/edited token
-        var serverPass = _cx_crypto.Aes.decrypt(dbUser.serverPass, dbUser.accountCode);
+        var serverPass = null;
+        if (dbUser.serverPass) { serverPass = _cx_crypto.Aes.decrypt(dbUser.serverPass, dbUser.accountCode); }
         return {
             username: dbUser.email,
             name: dbUser.firstName + ' ' + dbUser.lastName,
