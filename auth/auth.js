@@ -70,8 +70,8 @@ async function logAudit(request, db, dbUser, failureOptions, failureSessionId) {
         ? (failureSessionId || '')
         : dbUser.loginId.toString() + ':' + d.getTime().toString();
     // insert login audit record
-    var query = 'insert into accountLoginAudit (loginId, loginIP, loginInfo, sessionId, status) ';
-    query += 'values (@loginId, @loginIP, @loginInfo, @sessionId, @status) ';
+    var query = 'insert into accountLoginAudit (loginId, loginIP, loginInfo, sessionId, status, accountId) ';
+    query += 'values (@loginId, @loginIP, @loginInfo, @sessionId, @status, @accountId) ';
     // check failure options
     if (!failureOptions) {
         // if successful login then update login table with latest session id
@@ -90,6 +90,7 @@ async function logAudit(request, db, dbUser, failureOptions, failureSessionId) {
     params.push({ name: 'loginInfo', value: request.info.id });
     params.push({ name: 'sessionId', value: sessionId });
     params.push({ name: 'status', value: (failureOptions || 'success') });
+    params.push({ name: 'accountId', value: dbUser.lastAccountId });
     // exec script and return failure message or session id
     await db.exec({ sql: query, params: params });
     return failureOptions || sessionId;
