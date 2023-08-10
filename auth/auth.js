@@ -168,7 +168,7 @@ function DBAuth(options) {
                 // @REVIEW: this will create a pool per user, but not sure if that's what I want
                 //
                 name: 'cx_oauth_' + accountId + '_' + userId,
-                // TODO: this is stored on local cookie and would not work, see TODO.txt on how to fix
+                // @@TODO: this is stored on local cookie and would not work
                 config: {
                     server: result.serverName,
                     database: result.dbName,
@@ -268,7 +268,7 @@ function DBAuth(options) {
                 //name: 'cx_' + dbUser.lastAccountId,
                 name: 'cx_' + dbUser.lastAccountId + '_' + dbUser.loginId,
 
-                // TODO: this is stored on local cookie and would not work, see TODO.txt on how to fix
+                // @@TODO: this is stored on local cookie and would not work
                 config: {
                     server: dbUser.serverName,
                     database: dbUser.dbName,
