@@ -474,6 +474,16 @@ function DBAuth(options) {
 
     this.setUserAccountId = async function (userId, accountId) {
         var db = await _cx.get(this.connString);
+
+        var result = await db.exec({
+            sql: 'select * from accountLogins where accountLoginId = @accountLoginId and accountId = @accountId',
+            params: [
+                { name: 'accountLoginId', value: userId },
+                { name: 'accountId', value: accountId }
+            ]
+        });
+        if (result.count == 0) { throw new Error(`you do not have access top this account [${accountId}], please contact your system administrator.`); }
+
         await db.exec({
             sql: 'update accountLogin set lastAccountId = @lastAccountId where loginId = @loginId',
             params: [
