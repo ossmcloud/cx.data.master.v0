@@ -437,13 +437,17 @@ function DBAuth(options) {
         return true;
     }
 
-    this.generate2Fa = async function (token) {
+    // @@TODO: @@CODE-REPETITION: this exact function is also here (same name):
+    //                                          cx.v0\cx.sdk.v0\cx.data.master.v0\cx-master-context.js
+    this.generate2Fa = async function (token, validityInMinutes) {
+        if (!validityInMinutes) { validityInMinutes = 15; }
+
         var tfa = 0;
         while (tfa < 10000) { tfa = Math.floor(Math.random() * 100000000) + 1; }
         tfa = padLeft(tfa, 8, '0');
 
         var dt = new Date();
-        var dtExp = addMinutes(dt, 15);
+        var dtExp = addMinutes(dt, validityInMinutes);
 
         var db = await _cx.get(this.connString);
         await db.exec({

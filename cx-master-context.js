@@ -1,10 +1,11 @@
 'use strict';
 
 const _path = require('path');
+const _core = require('cx-core');
 const _cx_data = require('cx-data');
 const md5 = require('md5');
 const _tfa = require("node-2fa");
-const { toUSVString } = require('util');
+
 
 const _loginStatus = {
     NOT_VERIFIED: -1,
@@ -43,13 +44,16 @@ class CXMasterContext extends _cx_data.DBContext {
     // }
 
 
-    async generate2Fa(loginId) {
+    // @@TODO: @@CODE-REPETITION: this exact function is also here (same name):
+    //                                          cx.v0\cx.sdk.v0\cx.data.master.v0\auth\auth.js
+    async generate2Fa(loginId, validityInMinutes) {
+        if (!validityInMinutes) { validityInMinutes = 15; }
         var tfa = 0;
         while (tfa < 10000) { tfa = Math.floor(Math.random() * 100000000) + 1; }
         tfa = padLeft(tfa, 8, '0');
 
         var dt = new Date();
-        var dtExp = addMinutes(dt, 15);
+        var dtExp = addMinutes(dt, validityInMinutes);
 
         await this.exec({
             sql: 'insert into accountLoginAuditTFA (loginId, twoFactorAuthCode, dateCreated, dateExpiry) values (@loginId, @twoFactorAuthCode, @dateCreated, @dateExpiry)',
@@ -82,7 +86,38 @@ class CXMasterContext extends _cx_data.DBContext {
             ]
 
         });
+    }
 
+    async lockLogin(loginId) {
+        await this.exec({
+            sql: "update accountLogin set status = 9, tfaKey = null where loginId = @loginId",
+            params: [
+                { name: 'loginId', value: loginId }
+            ]
+        });
+    }
+
+    async getMasterLoginStatusInfo(logins) {
+        var loginIds = [];
+        for (var lx = 0; lx < logins.length; lx++) {
+            loginIds.push(logins[lx].masterLoginId);
+        }
+        var query = {
+            sql: `  select  loginId, status
+                    from    accountLogin
+                    where   loginId in (${loginIds.join(',')})`,
+        }
+        var res = await this.exec(query);
+
+        for (var lx = 0; lx < res.rows.length; lx++) {
+            var masterStatus = res.rows[lx];
+            var login = _core.list.findInArray(logins, 'masterLoginId', masterStatus.loginId);
+            if (login) {
+                login.status = masterStatus.status;
+            }
+        }
+
+        return res;
     }
 
     async getMasterLoginInfo(loginId) {
