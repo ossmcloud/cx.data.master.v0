@@ -168,7 +168,7 @@ function DBAuth(options) {
                 // @REVIEW: this will create a pool per user, but not sure if that's what I want
                 //
                 name: 'cx_oauth_' + accountId + '_' + userId,
-                // TODO: this is stored on local cookie and would not work, see TODO.txt on how to fix
+                // @@TODO: this is stored on local cookie and would not work
                 config: {
                     server: result.serverName,
                     database: result.dbName,
@@ -268,7 +268,7 @@ function DBAuth(options) {
                 //name: 'cx_' + dbUser.lastAccountId,
                 name: 'cx_' + dbUser.lastAccountId + '_' + dbUser.loginId,
 
-                // TODO: this is stored on local cookie and would not work, see TODO.txt on how to fix
+                // @@TODO: this is stored on local cookie and would not work
                 config: {
                     server: dbUser.serverName,
                     database: dbUser.dbName,
@@ -437,13 +437,17 @@ function DBAuth(options) {
         return true;
     }
 
-    this.generate2Fa = async function (token) {
+    // @@TODO: @@CODE-REPETITION: this exact function is also here (same name):
+    //                                          cx.v0\cx.sdk.v0\cx.data.master.v0\cx-master-context.js
+    this.generate2Fa = async function (token, validityInMinutes) {
+        if (!validityInMinutes) { validityInMinutes = 15; }
+
         var tfa = 0;
         while (tfa < 10000) { tfa = Math.floor(Math.random() * 100000000) + 1; }
         tfa = padLeft(tfa, 8, '0');
 
         var dt = new Date();
-        var dtExp = addMinutes(dt, 15);
+        var dtExp = addMinutes(dt, validityInMinutes);
 
         var db = await _cx.get(this.connString);
         await db.exec({
@@ -474,6 +478,16 @@ function DBAuth(options) {
 
     this.setUserAccountId = async function (userId, accountId) {
         var db = await _cx.get(this.connString);
+
+        var result = await db.exec({
+            sql: 'select * from accountLogins where accountLoginId = @accountLoginId and accountId = @accountId',
+            params: [
+                { name: 'accountLoginId', value: userId },
+                { name: 'accountId', value: accountId }
+            ]
+        });
+        if (result.count == 0) { throw new Error(`you do not have access top this account [${accountId}], please contact your system administrator.`); }
+
         await db.exec({
             sql: 'update accountLogin set lastAccountId = @lastAccountId where loginId = @loginId',
             params: [
