@@ -486,7 +486,7 @@ function DBAuth(options) {
                 { name: 'accountId', value: accountId }
             ]
         });
-        if (result.count == 0) { throw new Error(`you do not have access top this account [${accountId}], please contact your system administrator.`); }
+        if (result.count == 0) { throw new Error(`you do not have access to this account [${accountId}], please contact your system administrator.`); }
 
         await db.exec({
             sql: 'update accountLogin set lastAccountId = @lastAccountId where loginId = @loginId',
