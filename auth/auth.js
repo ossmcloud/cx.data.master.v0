@@ -29,7 +29,7 @@ const configs = {
 
 async function getUser(db, token) {
     if (!token || !token.username) { return null; }
-    var sql = `select	l.*, a.[name] as accountName, a.[Code] as accountCode, a.dbName, a.serverName, a.serverPass
+    var sql = `select	l.*, a.[name] as accountName, a.currency as accountCurrency, a.[Code] as accountCode, a.dbName, a.serverName, a.serverPass
                 from	accountLogin l
                 left outer join account a on l.lastAccountId = a.id
                 where   l.email = @email`
@@ -246,6 +246,9 @@ function DBAuth(options) {
         }
         var appStatus = await getAppStatus(db, dbUser);
 
+        // @@TODO: this should come from db but we really only have IE and UK
+        var country = dbUser.accountCurrency == 'GBP' ? 'UK' : 'IE';
+
         // return new/edited token
         var serverPass = null;
         if (dbUser.serverPass) { serverPass = _cx_crypto.Aes.decrypt(dbUser.serverPass, dbUser.accountCode); }
@@ -258,6 +261,8 @@ function DBAuth(options) {
             accountId: dbUser.lastAccountId,
             accountName: dbUser.accountName,
             accountCode: dbUser.accountCode,
+            accountCurrency: dbUser.accountCurrency,
+            accountCountry: country,
             theme: dbUser.theme || 'light',
             requireTfa: true,
             tfaInfo: tfaInfo,
