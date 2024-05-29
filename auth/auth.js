@@ -46,6 +46,7 @@ async function getUserAccounts(db, userId) {
     sql += 'from	accountLogins l, account a ';
     sql += 'where	l.accountId = a.id ';
     sql += 'and		l.accountLoginId = @loginId ';
+    sql += 'and     a.status = 1';
     sql += 'order by a.[name]';
     var result = await db.exec({
         sql: sql,
