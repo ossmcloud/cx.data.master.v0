@@ -4,8 +4,11 @@ const md5 = require('md5');
 
 const _core = require('cx-core');
 const _cx = require('../cx-master-context');
+const _cxData = require('cx-data');
 const _tfa = require("node-2fa");
 const _cx_crypto = require('cx-core/core/cx-crypto');
+const { config } = require('process');
+const { pool, map } = require('mssql');
 
 const errorCodes = {
     invalidUser: 'F:INVALID_USER',
@@ -41,16 +44,20 @@ async function getUser(db, token) {
     return result.first();
 }
 
-async function getUserAccounts(db, userId) {
+async function getUserAccounts(db, userId, excludeAccountId) {
     var sql = 'select	a.id, a.code, a.[name] ';
     sql += 'from	accountLogins l, account a ';
     sql += 'where	l.accountId = a.id ';
     sql += 'and		l.accountLoginId = @loginId ';
     sql += 'and     a.status = 1';
+    if (excludeAccountId) {
+        sql += 'and     a.id != ' + parseInt(excludeAccountId);
+    }
     sql += 'order by a.[name]';
     var result = await db.exec({
         sql: sql,
-        params: { name: 'loginId', value: userId }
+        params: { name: 'loginId', value: userId },
+
     });
     if (result.count == 0) { return null; }
     var accounts = new Array();
@@ -62,6 +69,75 @@ async function getUserAccounts(db, userId) {
         });
     });
     return accounts;
+}
+
+async function getAccountDBContext(db, accountId) {
+    try {
+        var sql = `select	a.[name] as accountName, a.[Code] as accountCode, a.dbName, a.serverName, a.serverPass
+                from	account a
+                where   a.id = @id`
+        var result = await db.exec({
+            sql: sql,
+            params: { name: 'id', value: accountId },
+            returnFirst: true
+        });
+        if (!result) { throw new Error(`could not find account id: ${accountId}`); }
+
+        var dbConfig = {
+            name: `${result.accountCode}_TEMP`,
+            noPullManager: false,
+            config: {
+                server: result.serverName,
+                database: result.dbName,
+                user: result.accountCode,
+                password: _cx_crypto.Aes.decrypt(result.serverPass, result.accountCode),
+                connectionTimeout: 60000,
+                requestTimeout: 180000,
+                pool: {
+                    max: 20,
+                    min: 0,
+                    idleTimeoutMillis: 60000
+                }
+            }
+        }
+
+        var db_pool = await _cxData.getPool(dbConfig);
+
+        return new _cxData.DBContext(db_pool, '', dbConfig);
+    } catch (error) {
+        throw new Error(`could not create account [id: ${accountId}] DB Context: ${error.message}`);
+    }
+}
+async function getAccountTranTypeConfigs(db, accountId, eposProvider) {
+    var cxClient = await getAccountDBContext(db, accountId);
+    var res = await cxClient.exec({
+        sql: `
+            select  mapConfigId, eposProvider, erpProvider, name, s.shopCode, s.shopName
+            from    cx_map_config map
+            JOIN    cx_shop s on s.shopId = map.mapMasterShop
+            WHERE   mapTypeId = 1
+            and     eposProvider = @eposProvider
+            order by name
+        `,
+        params: [{ name: 'eposProvider', value: eposProvider }]
+    });
+    return res.rows;
+}
+async function getAccountTranTypes(db, accountId, mapConfigId) {
+    var cxClient = await getAccountDBContext(db, accountId);
+
+    var res = await cxClient.exec({
+        sql: `
+            select  tt.*, cbt.code as cbCode, cbt.cbSection
+            from    cr_tran_type_config tt
+            JOIN    cr_cb_tran_type cbt on cbt.cbTranTypeId = tt.cbTranTypeId
+            WHERE   mapConfigId = @mapConfigId
+            order by tt.sortIndex, tt.[description]
+        `,
+        params: [{ name: 'mapConfigId', value: mapConfigId }]
+    });
+
+    return res.rows;
 }
 
 async function logAudit(request, db, dbUser, failureOptions, failureSessionId) {
@@ -128,13 +204,14 @@ async function getAppStatus(db, dbUser) {
     // NOTE: do not check app status if user is from cloud-cx staff
     //if (dbUser.loginType < _cx.LoginType.CX_SUPPORT) {
     var sql = "select message, additionalInfo from appStatus where appType = 'app' and active=1 and (accountId = @accountId or accountId = -1)";
-        var result = await db.exec({
-            sql: sql,
-            params: { name: 'accountId', value: dbUser.lastAccountId }
-        });
-        return result.first();
+    var result = await db.exec({
+        sql: sql,
+        params: { name: 'accountId', value: dbUser.lastAccountId }
+    });
+    return result.first();
     //}
 }
+
 
 
 
@@ -165,7 +242,7 @@ function DBAuth(options) {
             userId: userId,
             accountId: accountId,
             dbConfig: {
-                
+
                 // @REVIEW: this will create a pool per user, but not sure if that's what I want
                 //
                 name: 'cx_oauth_' + accountId + '_' + userId,
@@ -477,9 +554,18 @@ function DBAuth(options) {
         });
     }
 
-    this.getUserAccounts = async function (userId) {
+    this.getAccountTranTypeConfigs = async function (accountId, eposProvider) {
         var db = await _cx.get(this.connString);
-        return await getUserAccounts(db, userId);
+        return await getAccountTranTypeConfigs(db, accountId, eposProvider);
+    }
+    this.getAccountTranTypes = async function (accountId, mapConfigId) {
+        var db = await _cx.get(this.connString);
+        return await getAccountTranTypes(db, accountId, mapConfigId);
+    }
+
+    this.getUserAccounts = async function (userId, excludeAccountId) {
+        var db = await _cx.get(this.connString);
+        return await getUserAccounts(db, userId, excludeAccountId);
     };
 
     this.setUserAccountId = async function (userId, accountId) {
