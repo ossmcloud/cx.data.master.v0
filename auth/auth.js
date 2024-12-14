@@ -306,7 +306,8 @@ function DBAuth(options) {
             if (!dbUser.tfaKey) {
                 const newSecret = _tfa.generateSecret({ name: 'cloud-cx', account: dbUser.email });
                 dbUser.tfaKey = newSecret.secret;
-                dbUser.tfaQr = newSecret.qr.replace('chs=166x166', 'chs=250x250');
+                //dbUser.tfaQr = newSecret.qr.replace('chs=166x166', 'chs=250x250');
+                dbUser.tfaQr = `https://quickchart.io/qr?text=${newSecret.secret}`;
 
                 await db.exec({
                     sql: `update accountLogin set tfaKey = @tfaKey, tfaQr = @tfaQr where loginId = @loginId`,
@@ -448,7 +449,8 @@ function DBAuth(options) {
                 if (!tfaInfo.tfaKey) {
                     const newSecret = _tfa.generateSecret({ name: 'cloud-cx', account: tfaInfo.email });
                     tfaInfo.tfaKey = newSecret.secret;
-                    tfaInfo.tfaQr = newSecret.qr.replace('chs=166x166', 'chs=250x250');
+                    //tfaInfo.tfaQr = newSecret.qr.replace('chs=166x166', 'chs=250x250');
+                    tfaInfo.tfaQr = `https://quickchart.io/qr?text=${newSecret.secret}`;
 
                     await db.exec({
                         sql: `update accountLogin set tfaKey = @tfaKey, tfaQr = @tfaQr where loginId = @loginId`,
