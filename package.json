@@ -21,7 +21,7 @@
         "cx-data": "git+https://github.com/ossmcloud/cx.data.v0.git#live",
         "crypto-js": "^4.1.1",
         "md5": "^2.2.1",
-        "mssql": "^6.3.0",
+        "mssql": "^11.0.1",
         "node-2fa": "^2.0.3",
         "nodemailer": "^6.4.17"
     }
