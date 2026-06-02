@@ -307,7 +307,9 @@ function DBAuth(options) {
                 const newSecret = _tfa.generateSecret({ name: 'cloud-cx', account: dbUser.email });
                 dbUser.tfaKey = newSecret.secret;
                 //dbUser.tfaQr = newSecret.qr.replace('chs=166x166', 'chs=250x250');
-                dbUser.tfaQr = `https://quickchart.io/qr?text=${newSecret.secret}`;
+                //dbUser.tfaQr = `https://quickchart.io/qr?text=${newSecret.secret}`;
+                dbUser.tfaQr = `otpauth://totp/ISSUER:${dbUser.email}?secret==${newSecret.secret}&issuer=sruu`
+                dbUser.tfaQr = `https://quickchart.io/qr?text=${encodeURIComponent(dbUser.tfaQr)}`;
 
                 await db.exec({
                     sql: `update accountLogin set tfaKey = @tfaKey, tfaQr = @tfaQr where loginId = @loginId`,
@@ -450,7 +452,9 @@ function DBAuth(options) {
                     const newSecret = _tfa.generateSecret({ name: 'cloud-cx', account: tfaInfo.email });
                     tfaInfo.tfaKey = newSecret.secret;
                     //tfaInfo.tfaQr = newSecret.qr.replace('chs=166x166', 'chs=250x250');
-                    tfaInfo.tfaQr = `https://quickchart.io/qr?text=${newSecret.secret}`;
+                    // tfaInfo.tfaQr = `https://quickchart.io/qr?text=${newSecret.secret}`;
+                    tfaInfo.tfaQr = `otpauth://totp/${tfaInfo.email}?secret==${newSecret.secret}&issuer=sruu`
+                    tfaInfo.tfaQr = `https://quickchart.io/qr?text=${encodeURIComponent(tfaInfo.tfaQr)}`;
 
                     await db.exec({
                         sql: `update accountLogin set tfaKey = @tfaKey, tfaQr = @tfaQr where loginId = @loginId`,

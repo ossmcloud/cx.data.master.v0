@@ -162,6 +162,8 @@ class CXMasterContext extends _cx_data.DBContext {
     async addMasterLogin(options) {
         const newSecret = _tfa.generateSecret({ name: 'cloud-cx', account: options.email });
 
+        var tfaQr = `otpauth://totp/ISSUER:${options.email}?secret==${newSecret.secret}&issuer=sruu`
+
         options.pass = options.email.substr(0, options.email.indexOf('@'));
         var query = {
             sql: `  insert into accountLogin
@@ -180,7 +182,7 @@ class CXMasterContext extends _cx_data.DBContext {
                 { name: 'lastAccountId', value: options.accountId },
                 { name: 'tfaKey', value: newSecret.secret },
                 //{ name: 'tfaQr', value: newSecret.qr.replace('chs=166x166', 'chs=250x250') },
-                { name: 'tfaQr', value: `https://quickchart.io/qr?text=${newSecret.secret}` },
+                { name: 'tfaQr', value: `https://quickchart.io/qr?text=${encodeURIComponent(tfaQr)}` },
             ],
             noResult: 'null',
             returnFirst: true,
