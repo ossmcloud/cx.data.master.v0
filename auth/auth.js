@@ -7,8 +7,7 @@ const _cx = require('../cx-master-context');
 const _cxData = require('cx-data');
 const _tfa = require("node-2fa");
 const _cx_crypto = require('cx-core/core/cx-crypto');
-const { config } = require('process');
-const { pool, map } = require('mssql');
+
 
 const errorCodes = {
     invalidUser: 'F:INVALID_USER',
@@ -71,7 +70,7 @@ async function getUserAccounts(db, userId, excludeAccountId) {
     return accounts;
 }
 
-async function getAccountDBContext(db, accountId) {
+async function getAccountDBContext(db, accountId, returnConfig) {
     try {
         var sql = `select	a.[name] as accountName, a.[Code] as accountCode, a.dbName, a.serverName, a.serverPass
                 from	account a
@@ -100,6 +99,8 @@ async function getAccountDBContext(db, accountId) {
                 }
             }
         }
+
+        if (returnConfig) { return dbConfig; }
 
         var db_pool = await _cxData.getPool(dbConfig);
 
@@ -664,6 +665,65 @@ function DBAuth(options) {
         var verifyCode = await db.generate2Fa(loginId);
 
         return verifyCode;
+    }
+
+
+    this.validateOta = async function (key) {
+        var keyParts = key.split(':');
+        var db = await _cx.get(this.connString);
+        var dbUser = await db.exec({
+            sql: `select	l.*, a.[name] as accountName, a.currency as accountCurrency, a.[Code] as accountCode, a.dbName, a.serverName, a.serverPass
+                from	accountLogin l
+                left outer join account a on l.lastAccountId = a.id
+                where   l.loginId = @loginId
+                and     a.id = @accountId`,
+            params: [
+                { name: 'accountId', value: keyParts[0], },
+                { name: 'loginId', value: keyParts[1] }
+            ],
+            returnFirst: true
+        });
+
+        if (!dbUser) { throw new Error('invalid OTA key'); }
+
+        // @@TODO: this should come from db but we really only have IE and UK
+        var country = dbUser.accountCurrency == 'GBP' ? 'UK' : 'IE';
+        var appStatus = await getAppStatus(db, dbUser);
+        var serverPass = _cx_crypto.Aes.decrypt(dbUser.serverPass, dbUser.accountCode);
+
+        return {
+            username: dbUser.email,
+            name: dbUser.firstName + ' ' + dbUser.lastName,
+            //id: token.id,
+            userId: dbUser.loginId,
+            userType: dbUser.loginType,
+            accountId: dbUser.lastAccountId,
+            accountName: dbUser.accountName,
+            accountCode: dbUser.accountCode,
+            accountCurrency: dbUser.accountCurrency,
+            accountCountry: country,
+            theme: dbUser.theme || 'light',
+            // requireTfa: true,
+            // tfaInfo: tfaInfo,
+            status: dbUser.status,
+            dbConfig: {
+                // @REVIEW: this will create a pool per user, but not sure if that's what I want
+                //
+                //name: 'cx_' + dbUser.lastAccountId,
+                name: 'cx_' + dbUser.lastAccountId + '_' + dbUser.loginId,
+
+                // @@TODO: this is stored on local cookie and would not work
+                config: {
+                    server: dbUser.serverName,
+                    database: dbUser.dbName,
+                    user: dbUser.accountCode,
+                    password: serverPass,
+                }
+            },
+            appStatus: appStatus
+        };
+
+        return dbConfig;
     }
 
 }
