@@ -668,7 +668,9 @@ function DBAuth(options) {
     }
 
 
-    this.validateOta = async function (key) {
+    this.validateOta = async function (k) {
+        var key = _cx_crypto.Aes.decrypt(_core.text.fromBase64(k), process.env.OTA_PASS);
+        
         var keyParts = key.split(':');
         var db = await _cx.get(this.connString);
         var dbUser = await db.exec({
@@ -691,6 +693,7 @@ function DBAuth(options) {
         var appStatus = await getAppStatus(db, dbUser);
         var serverPass = _cx_crypto.Aes.decrypt(dbUser.serverPass, dbUser.accountCode);
 
+        
         return {
             username: dbUser.email,
             name: dbUser.firstName + ' ' + dbUser.lastName,
