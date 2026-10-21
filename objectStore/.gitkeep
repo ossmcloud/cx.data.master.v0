@@ -1,0 +1,2 @@
+# keeps this folder in git (git does not store empty folders)
+# CXMasterContext.table(name) loads the master db table classes from this folder (same layout as cx-data-client/objectStore)
