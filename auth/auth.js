@@ -611,49 +611,6 @@ function DBAuth(options) {
         if (result.count == 0) { return null; }
         return result.first().loginId;
     }
-    this.addAccountLogin = async function (accountId, email, firstName, lastName) {
-        var db = await _cx.get(this.connString);
-        var isNew = false;
-        var loginId = await this.getAccountLogin(db, email);
-        if (!loginId) {
-            isNew = true;
-            var query = 'insert into accountLogin (loginType, email, pass, status, firstName, lastName, lastAccountId, lastLoginAttempts)';
-            query += ' values (@loginType, @email, @pass, @status, @firstName, @lastName, @accountId, @lastLoginAttempts)';
-            query += " insert into accountLogins (accountId, accountLoginId) values (@accountId, IDENT_CURRENT('accountLogin'))";
-            await db.exec({
-                sql: query,
-                params: [
-                    { name: 'accountId', value: accountId },
-                    { name: 'loginType', value: 1 },
-                    { name: 'email', value: email },
-                    { name: 'pass', value: '63aced15f8d9f62ec5f861aa2808dc4d' },
-                    { name: 'status', value: 0 },
-                    { name: 'firstName', value: firstName },
-                    { name: 'lastName', value: lastName },
-                    { name: 'lastLoginAttempts', value: 0 },
-                ]
-            });
-        };
-
-        var accountLoginId = await this.getAccountLogin(db, email, accountId);
-
-        if (!accountLoginId) {
-            var query = "insert into accountLogins (accountId, accountLoginId) values (@accountId, @loginId)";
-            await db.exec({
-                sql: query,
-                params: [
-                    { name: 'accountId', value: accountId },
-                    { name: 'loginId', value: loginId },
-                ]
-            });
-        }
-
-        return {
-            isNew: isNew,
-            loginId: loginId
-        }
-    }
-
     this.loginResetByUser = async function (email) {
         var db = await _cx.get(this.connString);
         var isNew = false;
