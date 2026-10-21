@@ -35,7 +35,7 @@ function padLeft(str, size, char) {
 
 class CXMasterContext extends _cx_data.DBContext {
     constructor(pool) {
-        super(pool, _path.join(__dirname, 'business'));
+        super(pool, _path.join(__dirname, 'objectStore'));
     }
 
     // createTfaKey() {
