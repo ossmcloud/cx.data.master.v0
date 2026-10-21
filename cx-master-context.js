@@ -100,12 +100,14 @@ class CXMasterContext extends _cx_data.DBContext {
     async getMasterLoginStatusInfo(logins) {
         var loginIds = [];
         for (var lx = 0; lx < logins.length; lx++) {
-            loginIds.push(logins[lx].masterLoginId);
+            // NOTE: only integer ids, these are used in the 'in' clause below
+            var loginId = parseInt(logins[lx].masterLoginId);
+            if (!isNaN(loginId)) { loginIds.push(loginId); }
         }
         var query = {
             sql: `  select  loginId, status
                     from    accountLogin
-                    where   loginId in (${loginIds.join(',')})`,
+                    where   loginId in (${(loginIds.length > 0) ? loginIds.join(',') : 'null'})`,
         }
         var res = await this.exec(query);
 
