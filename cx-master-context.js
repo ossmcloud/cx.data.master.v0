@@ -135,6 +135,18 @@ class CXMasterContext extends _cx_data.DBContext {
         return res;
     }
 
+    // NOTE: core system prompts of the ai assistant, one system message per row (cx-ai-engine.js createChat)
+    async getAiSystemPrompts() {
+        var query = {
+            sql: `  select  aiPromptId, name, prompt
+                    from    sysAIPrompt
+                    where   inactive = 0
+                    order by execSequence, aiPromptId`,
+        }
+        var res = await this.exec(query);
+        return res.rows;
+    }
+
     async getMasterLogin(options) {
         var login = await this.fetchMasterLogin(options.email);
         if (!login) {
