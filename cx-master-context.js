@@ -147,6 +147,19 @@ class CXMasterContext extends _cx_data.DBContext {
         return res.rows;
     }
 
+    // NOTE: models available to the ai assistant (cx-ai-config.js), the api keys stay in the env (apiKeyEnv is the variable name)
+    async getAiModels() {
+        var query = {
+            sql: `  select  deployment, label, efforts, defaultEffort, priceIn, priceOut, priceCached,
+                            endpoint, apiVersion, apiKeyEnv, isDefault
+                    from    sysAIModel
+                    where   inactive = 0
+                    order by sortOrder, aiModelId`,
+        }
+        var res = await this.exec(query);
+        return res.rows;
+    }
+
     async getMasterLogin(options) {
         var login = await this.fetchMasterLogin(options.email);
         if (!login) {
