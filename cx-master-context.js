@@ -35,7 +35,7 @@ function padLeft(str, size, char) {
 
 class CXMasterContext extends _cx_data.DBContext {
     constructor(pool) {
-        super(pool, _path.join(__dirname, 'business'));
+        super(pool, _path.join(__dirname, 'objectStore'));
     }
 
     // createTfaKey() {
@@ -100,12 +100,14 @@ class CXMasterContext extends _cx_data.DBContext {
     async getMasterLoginStatusInfo(logins) {
         var loginIds = [];
         for (var lx = 0; lx < logins.length; lx++) {
-            loginIds.push(logins[lx].masterLoginId);
+            // NOTE: only integer ids, these are used in the 'in' clause below
+            var loginId = parseInt(logins[lx].masterLoginId);
+            if (!isNaN(loginId)) { loginIds.push(loginId); }
         }
         var query = {
             sql: `  select  loginId, status
                     from    accountLogin
-                    where   loginId in (${loginIds.join(',')})`,
+                    where   loginId in (${(loginIds.length > 0) ? loginIds.join(',') : 'null'})`,
         }
         var res = await this.exec(query);
 
@@ -131,6 +133,31 @@ class CXMasterContext extends _cx_data.DBContext {
         }
         var res = await this.exec(query);
         return res;
+    }
+
+    // NOTE: core system prompts of the ai assistant, one system message per row (cx-ai-engine.js createChat)
+    async getAiSystemPrompts() {
+        var query = {
+            sql: `  select  aiPromptId, name, prompt
+                    from    sysAIPrompt
+                    where   inactive = 0
+                    order by execSequence, aiPromptId`,
+        }
+        var res = await this.exec(query);
+        return res.rows;
+    }
+
+    // NOTE: models available to the ai assistant (cx-ai-config.js), the api keys stay in the env (apiKeyEnv is the variable name)
+    async getAiModels() {
+        var query = {
+            sql: `  select  deployment, label, efforts, defaultEffort, priceIn, priceOut, priceCached,
+                            endpoint, apiVersion, apiKeyEnv, isDefault
+                    from    sysAIModel
+                    where   inactive = 0
+                    order by sortOrder, aiModelId`,
+        }
+        var res = await this.exec(query);
+        return res.rows;
     }
 
     async getMasterLogin(options) {
